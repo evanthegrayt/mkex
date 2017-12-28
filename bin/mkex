@@ -103,7 +103,6 @@ handle_clobbering() {
             interactive)
                 echo "[$file] already exists..."
                 read -p "(e)dit it, (o)verwrite it, or e(x)it?: "
-                read
                 case $REPLY in
                     e|E)
                         echo "Opening $file in $editor."
