@@ -1,0 +1,77 @@
+.\" Manpage for mkex
+
+.TH mkex 1 "April 2017" "mkex 4.1" "Development Utility Manuals"
+.SH NAME
+\fBmkex \fR\- create an executable file with the chosen language's interpreter line and open it in an editor
+.SH SYNOPSIS
+\fBmkex \fR[\fIOPTIONS\fP] [\fPFILE\fP]...
+.SH DESCRIPTION
+\fBmkex\fR will create a \fIFILE\fP in either your current directory or in \fPPATH\fP, and give it executable permissions. It will also add the interpreter line at the top of the file so when it opens, you will automatically be given syntx highlighting if it's available, and if \fPEDITOR\fP supports it. Lastly, \fB-I\fP will set the \fBIFS\fP (internal field separator) to a newline if the language is bash or sh. The file will then open in \fIEDITOR\fP.
+.SH OPTIONS
+.IP "\fB-e \fIEDITOR\fP"
+choose \fIEDITOR\fP to open the file in. If this option is not used, mkex will check the user's \fBenvironmental variables\fP for \fP$VISUAL\fP, then \fP$EDITOR\fP. If the user has neither set, \fIEDITOR\fP will default to vim. For more about environmental variables, see the \fBENVIRONMENTAL VARIABLES\fP section below.
+.IP "\fB-f \fIFILE"
+choose the name of \fIFILE\fP. If not passed, \fPFILE\fP will be the last parameter entered. If a file with that name already exists, \fBmkex\fP will give the option to edit, overwrite, or exit. To see other \fBclobber\fP options, see the \fB\-C\fP option below.
+.IP "\fB-E \fIPERMS\fP"
+By defualt, permissions are set to \fI755\fP. Use this flag to use different permissions. When setting this flag, \fBchmod\fP's style of permission setting must be used \- I.E.: 771; 751, etc.
+.IP "\fB-C"
+clobber \- if \fIFILE\fP exists, mkex will overwrite the file without asking. By default, if \fIFILE\fP already exists, \fBmkex\fP will give the option to overwrite or give the option to open the existing file in \fPEDITOR\fP.
+.IP "\fB-g\fR
+when set, if \fB~/.mkexrc\fP exists, it will be ignored. This is useful if you have a variable set that cannot otherwise be turned off, such as \fI\-n\fP.
+.IP "\fB-I\fR
+if the language is bash or sh, \fBIFS=$'\\n'\fP will be added under the interpreter line. This makes the \fPInternal Field Separator\fP newlines instead of spaces.
+.IP "\fB-P \fIPATH"
+provide a \fIPATH\fP to create the file in. If not specified, file will be made in your current directory, provided permissions allow.
+.IP "\fB-o \fIOPTION\fP"
+pass an \fIOPTION\fP to be added at the end of interpreter line, such as \fI\-x\fP to a \fBbash\fP interpreter, or \fI\-W0\fP to a \fBruby\fP interpreter
+.IP "\fB-n\fR"
+use \fB#!/usr/bin/env\fP \fILANGUAGE\fP rather than the default interpreter
+.IP "\fB-V\fR"
+Print \fBversion\fP information and exit
+.IP "\fB-u\fR"
+display usage
+.IP "\fB-h\fR"
+display short help
+.SH LANGUAGE OPTIONS
+.IP "\fB-l, \fB--language=\fILANGUAGE"
+choose \fILANGUAGE\fP to use. If \fILANGUAGE\fP is not found, program will exit. For most common languages, a single letter option is available. See below for a list of single letter options. Also, see the \fBCONFIGURATION FILES\fP section for setting a default language.
+.IP "\fB-r"
+ruby
+.IP "\fB-p"
+php
+.IP "\fB-R"
+perl
+.IP "\fB-y"
+python
+.IP "\fB-b"
+bash
+.IP "\fB-z"
+zsh
+.IP "\fB-s"
+sh   NOTE: on most systems, \fBsh\fP is a link to \fBbash\fP.
+.IP "\fB-a"
+awk
+.IP "\fB-d"
+sed
+.IP "\fB-c"
+csh
+.IP "\fB-k"
+ksh
+.IP "\fB-K"
+krsh
+.IP "\fB-i \fIINTERPRETER"
+if your system does not have the language either installed or in your path, you can pass its \fIINTERPRETER\fP manually. \fBmkex\fP will automatically pass the \fP#!\fP, just pass the path. I.E. \fP/usr/bin/expect\fP.
+.SH ENVIRONMENTAL VARIALBES
+If no \fIEDITOR\fP is passed as an argument, \fBmkex\fP will check your \fPENVIRONMENTAL VARIABLES\fP for either \fP$FCEDIT\fP, \fP$VISUAL\fP, or \fP$EDITOR\fP to be set. If you don't know, you can set your default editor. The way to do so is to add \fPexport VISUAL=\fInano\fR (or whatever you prefer) to a blank line in your \fB~/.bashrc\fP. NOTE: bash will always try to use \fB$FCEDIT\fP, \fB$VISUAL\fP, and \fP$EDITOR\fP in that order, and therefor is the order \fPmkex\fP uses.
+.SH CONFIGURATION FILES
+\fBmkex\fP accepts a configuration file where you can set default variables. Create a file in your home directory called \fB.mkexrc\fP. Available variables: \fBlang=\fILANGUAGE\fR, \fBperms=\fIPERMISSIONS\fR, \fBeditor=\fIEDITOR\fR, \fBenv=\fItrue\fR (same as passing the \fB-n\fP flag), \fBclobber=\fItrue \fR(same as passing the \fB-C\fP flag), \fBsetifs=\fItrue \fR(same as passing the \fB-I\fP flag). All boolean values are \fI0\fP (\fIfalse\fP) by default. Any variables set in the configuation file, if needed, can be overwritten by flags when initiating the program.
+.SH ENVIRONMENT
+Deployable on any Unix-like environment.
+.SH AUTHOR
+Written by Evan Gray.
+.SH REPORTING BUGS
+Report bugs to <\fIevangray3@hotmail.com\fP>
+.SH COPYRIGHT
+Copyright (C) 2017, Evan Gray.  All rights reserved.  There is NO WARRANTY, to the extent permitted by law.
+.SH SEE ALSO
+\fBvim\fR(1), \fPchmod\fP(1), \fPwhich\fP(1)
