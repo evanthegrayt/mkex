@@ -128,7 +128,7 @@ handle_clobbering() {
     fi
 }
 
-version='${0##*/} 2.1 (May 2017)'
+version="${0##*/} 2.1 (May 2017)"
 usage="USAGE: ${0##*/} [OPTIONS...] [FILE]"
 lcount=0
 env=false
