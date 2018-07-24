@@ -269,13 +269,13 @@ shift $(( OPTIND - 1 ))
     abort "Only one language can be chosen. \'${0##*/} -h' for help."
 
 file="$1"
-editor=${editor:-$(set_editor)}
-perms=${perms:-755}
+: ${editor:=$(set_editor)}
+: ${perms:=755}
 
 which "$editor" &>/dev/null || \
     abort "Editor [$editor] is not found in your path!"
 
-interpreter="${interpreter:-$(set_interpreter $lang $env)}"
+: "${interpreter:=$(set_interpreter $lang $env)}"
 
 handle_clobbering "$file" $editor $mode
 
