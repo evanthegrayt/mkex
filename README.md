@@ -43,5 +43,6 @@ default. Any variables set in the configuation file, if needed, can be
 overwritten by flags when initiating the program.
 
 ## Reporting Bugs
-To report bugs, please create an issue in the repository.
+To report bugs, please [create an issue in the
+repository](https://github.com/evanthegrayt/mkex/issues/new).
 
