@@ -1,6 +1,6 @@
 # mkex
-`mkex` will create `FILE` in either your current directory or in `PATH`, and
-give it executable permissions. It will also add the interpreter line at the top
+`mkex` provides an easy way to create a file and give it executable permissions.
+It will also add the chosen language's interpreter line at the top
 of the file so when it opens, you will automatically be given syntx highlighting
 if it's available, and if `EDITOR` supports it. Lastly, `-I` will set the `IFS`
 (internal field separator) to a newline if the language is shell. The file will
@@ -20,6 +20,8 @@ Call the executable, passing it a language option, and the name of the file you
 wish to create.
 ```sh
 mkex [OPTIONS] FILE
+# For example, to create an executable `ruby` file, called "ruby_script", run
+mkex -r ruby_script
 ```
 Run with `-h` to see available options.
 
