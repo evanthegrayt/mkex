@@ -43,7 +43,3 @@ overwritten by flags when initiating the program.
 ## Reporting Bugs
 To report bugs, please create an issue in the repository.
 
-### Copyright
-Copyright (C) 2017, Evan Gray.  All rights reserved.  There is NO WARRANTY, to
-the extent permitted by law.
-
