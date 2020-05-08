@@ -25,7 +25,7 @@ mkex -r ruby_script
 ```
 Run with `-h` to see available options.
 
-## Environmental Varialbes
+## Environmental Variables
 If no `EDITOR` is passed as an argument, `mkex` will check your
 `ENVIRONMENTAL VARIABLES` for either `$FCEDIT`, `$VISUAL`, or `$EDITOR` to be
 set. If you don't know, you can set your default editor. The way to do so is to
