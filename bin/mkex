@@ -1,120 +1,207 @@
 #!/usr/bin/env bash
 # Author:   Evan Gray
-# Version:  2.1
+# Version:  2.2
+
+readonly PROGRAM=${BASH_SOURCE[0]##*/}
+readonly VERSION="$PROGRAM 2.2 (July 2026)"
+readonly USAGE="USAGE: $PROGRAM [OPTIONS...] FILE"
+readonly DEFAULT_PERMS=755
+readonly IFS_LINE="IFS=\$'\\n'"
+
+reset_runtime_state() {
+    EDITOR_CMD=
+    FILE=
+    IFS_SETTING=
+    INTERPRETER=
+    INTERPRETER_OPTION=
+    LANGUAGE=
+    LANGUAGE_COUNT=0
+    MODE=
+    PERMS=
+    USE_ENV=false
+}
+
+print_usage() {
+    printf '%s\n' "$USAGE"
+}
 
 print_help() {
-    cat <<-____EOF
+    cat <<____EOF
 
-    === ${0##*/} short help ===
+    === $PROGRAM short help ===
 
     --- OPTIONS ---
-    -e [EDITOR] | requires editor (optional; if one is not passed, checks for
-                + environmental variables \$FCEDIT, \$VISUAL and \$EDITOR, then
-                + vim)
-    -E [PERMS]  | Executability: Files created use 755 permissions by default.
-                + This switch allows you to change the permission.
-                + NOTE: Use chmod's schema (4=read, 2=write, 1=execute)
-    -o [OPTION] | pass an option to be after the interpreter line. For example,
-                + adding '-x' to a bash script's interpreter
-    -C ........ | Clobber: If file exists, overwrite the file
-    -B ........ | No-Clobber: If file exists, report error and exit
-    -I ........ | sets Internal Field Separator (IFS) in bash and sh to newline
-    -V ........ | Print version and exit
+    -e EDITOR  | choose the editor to open the file in
+               + if not passed, checks \$FCEDIT, \$VISUAL, \$EDITOR, then vim
+    -E PERMS   | Executability: files created use 755 permissions by default
+               + this switch allows you to change the permission
+               + NOTE: use chmod's schema (4=read, 2=write, 1=execute)
+    -o OPTION  | pass an option to be added after the interpreter line
+               + for example, add '-x' to a bash script's interpreter
+    -C ....... | Clobber: if file exists, overwrite the file
+    -B ....... | No-Clobber: if file exists, report error and exit
+    -O ....... | Prompt before overwriting an existing file (default)
+    -I ....... | set Internal Field Separator (IFS) in bash, sh, and zsh
+    -V ....... | print version and exit
 
-    --- LANGUAGE OPTIONS (one is required) ---
-    -l [LANGUAGE]:    | Pass a language name. For common languages, see below.
-    -i [INTERPRETER]: | If a language isn't installed or in your path, pass the
-                      + interpreter. Only pass the path; ${0##*/} will add the \`#!'
-    -n .............. | use /usr/bin/env [LANGUAGE] instead of the interpreter
-    -N .............. | Unset 'env' option if you have it in your ~/.${0##*/}rc
-    -r .............. | ruby
-    -b .............. | bash
-    -a .............. | awk
-    -d .............. | sed
-    -z .............. | zsh
-    -f .............. | fish
-    -s .............. | sh
-    -c .............. | csh
-    -k .............. | ksh
-    -K .............. | krsh
-    -p .............. | python
-    -P .............. | php
+    --- LANGUAGE OPTIONS (one is required unless configured) ---
+    -l LANGUAGE    | pass a language name. For common languages, see below.
+    -i INTERPRETER | if a language is not installed or in your path, pass the
+                   + interpreter path. Only pass the path; $PROGRAM will add '#!'
+    -n ........... | use /usr/bin/env LANGUAGE instead of the interpreter path
+    -N ........... | unset 'env' option if you have it in your ~/.${PROGRAM}rc
+    -r ........... | ruby
+    -b ........... | bash
+    -a ........... | awk
+    -d ........... | sed
+    -z ........... | zsh
+    -f ........... | fish
+    -s ........... | sh
+    -c ........... | csh
+    -k ........... | ksh
+    -K ........... | krsh
+    -p ........... | python
+    -P ........... | php
 
     --- MORE HELP OPTIONS ---
     -u | print usage
     -h | print this help
-    \`man ${0##*/}' for FULL manual
+    \`man $PROGRAM' for FULL manual
 
 ____EOF
-    exit 0
-}
-
-set_editor() {
-    if [[ -n "$VISUAL" ]]; then
-        echo "$VISUAL"
-    elif [[ -n "$EDITOR" ]]; then
-        echo "$EDITOR"
-    else
-        echo "vim"
-    fi
 }
 
 abort() {
-    local msg="${1:-'Exiting...'}"
+    local msg=${1:-'Exiting...'}
     local status=${2:-1}
 
-    echo "$msg"
-    exit $status
+    printf '%s\n' "$msg" >&2
+    exit "$status"
+}
+
+is_true() {
+    case ${1:-} in
+        true|TRUE|True|1|yes|YES|Yes) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+command_available() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+resolve_command() {
+    command -v "$1" 2>/dev/null
+}
+
+set_editor() {
+    if [[ -n ${FCEDIT:-} ]]; then
+        printf '%s\n' "$FCEDIT"
+    elif [[ -n ${VISUAL:-} ]]; then
+        printf '%s\n' "$VISUAL"
+    elif [[ -n ${EDITOR:-} ]]; then
+        printf '%s\n' "$EDITOR"
+    else
+        printf '%s\n' "vim"
+    fi
+}
+
+editor_available() {
+    local editor=$1
+    local editor_command=${editor%%[[:space:]]*}
+
+    [[ -n $editor_command ]] && command_available "$editor_command"
+}
+
+open_editor() {
+    local editor=$1
+    local file=$2
+
+    # Allow common editor values with flags, such as "code -w" or "vim -p".
+    # shellcheck disable=SC2086
+    $editor "$file"
 }
 
 set_interpreter() {
+    local language=$1
+    local use_env=$2
+    local env_path
     local interpreter
 
-    local lang=$1
-    local env=$2
-
-    if $env; then
-        if [[ -x /usr/bin/env ]]; then
-            interpreter="/usr/bin/env $lang"
-        else
-            interpreter="$( which env ) $lang"
-        fi
+    if is_true "$use_env"; then
+        env_path=$(resolve_command env) || abort "[env] is not found in your path!"
+        printf '#!%s %s\n' "$env_path" "$language"
     else
-        interpreter=$( which $lang 2>/dev/null )
+        interpreter=$(resolve_command "$language") || \
+            abort "[$language] is not supported on this system. Exiting..."
+        printf '#!%s\n' "$interpreter"
     fi
+}
 
-    echo "#!$interpreter"
+set_custom_interpreter() {
+    local interpreter=$1
+
+    [[ -n $interpreter ]] || abort "$USAGE"
+    interpreter=${interpreter#'#!'}
+    printf '#!%s\n' "$interpreter"
+}
+
+validate_permissions() {
+    local perms=$1
+
+    if [[ ! $perms =~ ^[0-7]{3}$ ]]; then
+        printf '%s\n' "-E option should be a three-digit number in chmod's format." >&2
+        abort "\`man $PROGRAM' for more information."
+    elif [[ ! $perms =~ ^[1357][0-7]{2}$ ]]; then
+        printf '%s\n' "-E option must give the owner execute permission." >&2
+        abort "\`man $PROGRAM' for more information."
+    fi
+}
+
+is_ifs_compatible() {
+    case $1 in
+        bash|sh|zsh) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+set_language() {
+    LANGUAGE=$1
+    (( LANGUAGE_COUNT++ ))
 }
 
 handle_clobbering() {
-    local file="$1"
+    local file=$1
     local editor=$2
     local mode=${3:-interactive}
 
-    if [[ -f "$file" ]]; then
+    if [[ -e $file && ! -f $file ]]; then
+        abort "[$file] exists and is not a regular file."
+    fi
+
+    if [[ -f $file ]]; then
         case $mode in
             noclobber)
-                echo "[$file] already exists and 'No-Clobber' is set."
+                printf '%s\n' "[$file] already exists and 'No-Clobber' is set."
                 abort "Run with '-h' for help."
                 ;;
             clobber)
-                rm "$file"
+                return 0
                 ;;
             interactive)
-                echo "[$file] already exists..."
-                read -p "(e)dit it, (o)verwrite it, or e(x)it?: "
+                printf '%s\n' "[$file] already exists..."
+                read -r -p "(e)dit it, (o)verwrite it, or e(x)it?: "
                 case $REPLY in
                     e|E)
-                        echo "Opening $file in $editor."
-                        $editor "$file"
+                        printf '%s\n' "Opening $file in $editor."
+                        open_editor "$editor" "$file"
                         exit
                         ;;
                     o|O)
-                        echo "Overwriting $file"
+                        printf '%s\n' "Overwriting $file"
                         ;;
                     x|X)
-                        echo "Exiting..."
-                        exit
+                        abort "Exiting..." 0
                         ;;
                     *)
                         abort "Invalid option! Exiting..."
@@ -128,168 +215,201 @@ handle_clobbering() {
     fi
 }
 
-version="${0##*/} 2.1 (May 2017)"
-usage="USAGE: ${0##*/} [OPTIONS...] [FILE]"
-lcount=0
-env=false
+write_file() {
+    local file=$1
 
-[[ -f ~/.${0##*/}rc ]] && source ~/.${0##*/}rc
+    {
+        printf '%s%s\n' "$INTERPRETER" "${INTERPRETER_OPTION:-}"
 
-while getopts "VBzNfshrbcKki:ade:pPCIE:o:l:n" opts
-do
-    case $opts in
-        n)
-            env=true
-            ;;
-        N)
-            env=false
-            ;;
-        l)
-            lang=$OPTARG
-            (( lcount++ ))
+        if [[ -n ${IFS_SETTING:-} ]]; then
+            printf '%s\n' "$IFS_SETTING"
+        fi
 
-            which "$lang" &>/dev/null || \
-                abort "[$lang] is not supported on this system. Exiting..."
+        if [[ $LANGUAGE == "php" ]]; then
+            printf '<?php\n\n?>\n'
+        fi
+    } > "$file" || abort "Could not write [$file]."
+}
 
-            [[ $lang == 'bash' || $lang == 'sh' ||  $lang == 'zsh' ]] && \
-                lang_type="shell"
-            ;;
-        o)
-            option=$OPTARG
-            if [[ -z "$option" ]]; then
-                abort "$usage"
-            elif [[ ! "$option" =~ '-' ]]; then
-                abort "Option must contain a \'-\'. Exiting..." 1
-            else
-                option=" $option"
-            fi
-            ;;
-        E)
-            perms=$OPTARG
-            [[ -n "$perms" ]] || abort "$usage"
+load_config() {
+    local config_file=~/."$PROGRAM"rc
 
-            if [[ ! $perms =~ ^[0-9]+$ ]] || (( ${#perms} != 3 )) || \
-                [[ $perms != [01234567][01234567][01234567] ]]; then
-                echo "-E option should be a number in chmod's format."
-                abort "\`man ${0##*/}' for more information." 1
-            fi
-            ;;
-        e)
-            editor=$OPTARG
-            [[ -n "$editor" ]] || abort "$usage"
-            ;;
-        P)
-            lang="php"
-            (( lcount++ ))
-            ;;
-        r)
-            lang="ruby"
-            (( lcount++ ))
-            ;;
-        a)
-            lang="awk"
-            (( lcount++ ))
-            ;;
-        d)
-            lang="sed"
-            (( lcount++ ))
-            ;;
-        p)
-            lang="python"
-            (( lcount++ ))
-            ;;
-        b)
-            lang="bash"
-            (( lcount++ ))
-            lang_type="shell"
-            ;;
-        z)
-            lang="zsh"
-            (( lcount++ ))
-            lang_type="shell"
-            ;;
-        f)
-            lang="fish"
-            (( lcount++ ))
-            lang_type="shell"
-            ;;
-        c)
-            lang="csh"
-            (( lcount++ ))
-            ;;
-        C)
-            mode="clobber"
-            (( lcount++ ))
-            ;;
-        k)
-            lang="krsh"
-            (( lcount++ ))
-            ;;
-        k)
-            lang="ksh"
-            (( lcount++ ))
-            ;;
-        s)
-            lang="sh"
-            (( lcount++ ))
-            lang_type="shell"
-            ;;
-        O)
-            mode="interactive"
-            ;;
-        B)
-            mode="noclobber"
-            ;;
-        i)
-            interpreter="#!$OPTARG"
-            (( lcount++ ))
-            lang='custom'
-            ;;
-        I)
-            ifs="IFS=$'\n'"
-            ;;
-        V)
-            echo $version
-            exit
-            ;;
-        h)
-            print_help
-            ;;
-        u|*)
-            echo "$usage"
-            exit
-            ;;
-    esac
-done
-shift $(( OPTIND - 1 ))
+    [[ -f $config_file ]] || return 0
 
-[[ (( $# == 1 )) && -n "$lang" ]] || abort "$usage"
+    # shellcheck source=/dev/null
+    source "$config_file"
 
-(( $lcount > 1 )) && \
-    abort "Only one language can be chosen. \'${0##*/} -h' for help."
+    LANGUAGE=${LANGUAGE:-${lang:-}}
+    PERMS=${PERMS:-${perms:-}}
+    EDITOR_CMD=${EDITOR_CMD:-${editor:-}}
+    USE_ENV=${env:-$USE_ENV}
+    MODE=${MODE:-${mode:-}}
 
-file="$1"
-: ${editor:=$(set_editor)}
-: ${perms:=755}
+    if is_true "${clobber:-false}"; then
+        MODE=clobber
+    fi
 
-which "$editor" &>/dev/null || \
-    abort "Editor [$editor] is not found in your path!"
+    if is_true "${setifs:-false}"; then
+        IFS_SETTING=$IFS_LINE
+    fi
+}
 
-: "${interpreter:=$(set_interpreter $lang $env)}"
+validate_config() {
+    if [[ -n ${MODE:-} ]]; then
+        case $MODE in
+            clobber|noclobber|interactive) ;;
+            *) abort "Invalid mode [$MODE] in ~/.${PROGRAM}rc." ;;
+        esac
+    fi
+}
 
-handle_clobbering "$file" $editor $mode
+parse_args() {
+    local opt
 
-if [[ -n "$ifs" && $lang_type != "shell" ]]; then
-    echo "'-I' only compatible with bash, sh and zsh,"
-    abort "as it sets the Internal Field Separator." 1
-elif [[ $lang == "php" ]]; then
-    printf "%s%s\n<?php\n\n?>" "$interpreter" "$option" > "$file"
-elif [[ -n "$ifs" && $lang_type == "shell" ]]; then
-    printf "%s%s\n%s" "$interpreter" "$option" "$ifs" > "$file"
-else
-    printf "%s%s\n" "$interpreter" "$option" > "$file"
+    OPTIND=1
+    while getopts ":aBbCcde:E:fhi:IkKl:Nno:OpPrsuVz" opt; do
+        case $opt in
+            n)
+                USE_ENV=true
+                ;;
+            N)
+                USE_ENV=false
+                ;;
+            l)
+                set_language "$OPTARG"
+                ;;
+            o)
+                INTERPRETER_OPTION=$OPTARG
+                if [[ $INTERPRETER_OPTION != -* ]]; then
+                    abort "Option must start with '-'. Exiting..."
+                fi
+                INTERPRETER_OPTION=" $INTERPRETER_OPTION"
+                ;;
+            E)
+                PERMS=$OPTARG
+                validate_permissions "$PERMS"
+                ;;
+            e)
+                EDITOR_CMD=$OPTARG
+                ;;
+            P)
+                set_language "php"
+                ;;
+            r)
+                set_language "ruby"
+                ;;
+            a)
+                set_language "awk"
+                ;;
+            d)
+                set_language "sed"
+                ;;
+            p)
+                set_language "python"
+                ;;
+            b)
+                set_language "bash"
+                ;;
+            z)
+                set_language "zsh"
+                ;;
+            f)
+                set_language "fish"
+                ;;
+            c)
+                set_language "csh"
+                ;;
+            C)
+                MODE="clobber"
+                ;;
+            O)
+                MODE="interactive"
+                ;;
+            B)
+                MODE="noclobber"
+                ;;
+            k)
+                set_language "ksh"
+                ;;
+            K)
+                set_language "krsh"
+                ;;
+            s)
+                set_language "sh"
+                ;;
+            i)
+                INTERPRETER=$(set_custom_interpreter "$OPTARG") || exit "$?"
+                set_language "custom"
+                ;;
+            I)
+                IFS_SETTING=$IFS_LINE
+                ;;
+            V)
+                printf '%s\n' "$VERSION"
+                exit 0
+                ;;
+            h)
+                print_help
+                exit 0
+                ;;
+            u)
+                print_usage
+                exit 0
+                ;;
+            :)
+                abort "Option -$OPTARG requires an argument. $USAGE"
+                ;;
+            \?)
+                abort "Invalid option: -$OPTARG. $USAGE"
+                ;;
+        esac
+    done
+    shift "$(( OPTIND - 1 ))"
+
+    [[ $# -eq 1 && -n ${LANGUAGE:-} ]] || abort "$USAGE"
+
+    (( LANGUAGE_COUNT > 1 )) && \
+        abort "Only one language can be chosen. '$PROGRAM -h' for help."
+
+    FILE=$1
+}
+
+prepare_file() {
+    EDITOR_CMD=${EDITOR_CMD:-$(set_editor)}
+    PERMS=${PERMS:-$DEFAULT_PERMS}
+    MODE=${MODE:-interactive}
+
+    validate_permissions "$PERMS"
+
+    if [[ -n ${IFS_SETTING:-} ]] && ! is_ifs_compatible "$LANGUAGE"; then
+        printf '%s\n' "'-I' is only compatible with bash, sh, and zsh," >&2
+        abort "as it sets the Internal Field Separator."
+    fi
+
+    editor_available "$EDITOR_CMD" || \
+        abort "Editor [$EDITOR_CMD] is not found in your path!"
+
+    if [[ -z ${INTERPRETER:-} ]]; then
+        INTERPRETER=$(set_interpreter "$LANGUAGE" "$USE_ENV") || exit "$?"
+    fi
+}
+
+run() {
+    prepare_file
+    handle_clobbering "$FILE" "$EDITOR_CMD" "$MODE"
+    write_file "$FILE"
+    chmod "$PERMS" "$FILE" || abort "Could not set permissions on [$FILE]."
+    open_editor "$EDITOR_CMD" "$FILE"
+}
+
+main() {
+    reset_runtime_state
+    load_config
+    validate_config
+    parse_args "$@"
+    run
+}
+
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
+    main "$@"
 fi
-
-chmod $perms "$file"
-$editor "$file"
-
