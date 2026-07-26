@@ -1,4 +1,9 @@
 # mkex
+This project is now read-only. I merged this functionality with my other
+project, [exed](https://github.com/evanthegrayt/exed). I'll keep this project
+for now, but I highly recommend using `exed`. This project is not guaranteed to
+remain available in the future!
+
 `mkex` provides an easy way to create a file and give it executable permissions.
 It will also add the chosen language's interpreter line at the top of the file
 so when it opens, you will automatically be given syntax highlighting if it's
@@ -63,10 +68,16 @@ bats test
 ```
 
 ## Reporting Bugs
-To report bugs, please [create an issue in the
-repository](https://github.com/evanthegrayt/mkex/issues/new).
+I did my best to fix any bugs before marking this repository read-only, but if
+you find bugs, I recommend switching to
+[exed](https://github.com/evanthegrayt/exed). The bug may already be fixed
+there, but if not, [submit an
+issue](https://github.com/evanthegrayt/exed/issues/new).
 
-## Self-Promotion
-I do these projects for fun, and I enjoy knowing that they're helpful to people.
-Consider starring [the repository](https://github.com/evanthegrayt/mkex) if you
-like it! If you love it, follow me [on github](https://github.com/evanthegrayt)!
+## Support this project
+I love knowing when people find my work useful. Any kind of support is very much
+appreciated!
+
+- ⭐️ Like the project? Star [the repository](https://github.com/evanthegrayt/mkex)!
+- ❤️ Love the project? Follow me [on GitHub](https://github.com/evanthegrayt)!
+- 💸 *Really* love it? Consider [buying me a tea](https://paypal.me/evanrgray)!
